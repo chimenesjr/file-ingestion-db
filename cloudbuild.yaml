@@ -1,0 +1,47 @@
+
+steps:
+
+# build Dockerfile-gcp
+- name: gcr.io/cloud-builders/docker
+  args: [build, -f, Dockerfile-gcp, -t, gcr.io/$PROJECT_ID/$REPO_NAME:$BUILD_ID, .]
+
+# push
+- name: gcr.io/cloud-builders/docker
+  args: [push, gcr.io/$PROJECT_ID/$REPO_NAME:$BUILD_ID]
+  id: Docker push
+
+# delete if exists
+# - name: gcr.io/cloud-builders/gcloud
+#   args: [ compute, 
+#             instances,
+#             delete,
+#             file-ingest-db,
+#             --zone, us-central1-a # || exit 0,
+#   ]
+
+# deploy
+- name: gcr.io/cloud-builders/gcloud
+  args: [ compute, 
+          instances,
+          create-with-container,
+          file-ingest-db,
+          --zone, us-central1-a,
+          --machine-type, n1-standard-1,
+          --subnet, default,
+          --network-tier, PREMIUM,
+          --metadata, google-logging-enabled=true,
+          --image, cos-stable-78-12499-59-0,
+          --image-project, cos-cloud,
+          --boot-disk-size, 10GB,
+          --boot-disk-type ,pd-standard,
+          --boot-disk-device-name, file-ingest-db,
+          --container-image, gcr.io/$PROJECT_ID/$REPO_NAME:$BUILD_ID,
+          --container-restart-policy, never,
+          --container-privileged,
+          --labels, container-vm=cos-stable-78-12499-59-0,
+          --container-env, ASPNETCORE_ENVIRONMENT=Docker,
+          --scopes, 'storage-full,logging-write,monitoring-write'
+  ]
+
+# Push to Container Registry
+images: [gcr.io/$PROJECT_ID/$REPO_NAME:$BUILD_ID]
